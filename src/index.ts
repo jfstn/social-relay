@@ -60,26 +60,22 @@ async function check() {
       newCount++;
       console.log(`New post: ${post.text.slice(0, 80)}...`);
 
-      // Build caption: post text + link (Telegram caption limit is 1024)
-      const caption = post.link
-        ? `${post.text}\n\n${post.link}`
-        : post.text;
+      const link = post.link ?? undefined;
+      const name = post.pageName || undefined;
 
       if (post.images.length > 0) {
         try {
-          if (caption.length <= 1024) {
-            await sendPhoto(post.images[0], caption);
+          if (post.text.length <= 800) {
+            await sendPhoto(post.images[0], post.text, link, name);
           } else {
-            // Caption too long — send photo then full text separately
             await sendPhoto(post.images[0]);
-            await sendMessage(post.text, post.link ?? undefined);
+            await sendMessage(post.text, link, name);
           }
         } catch {
-          // Photo send failed, fall back to text
-          await sendMessage(post.text, post.link ?? undefined);
+          await sendMessage(post.text, link, name);
         }
       } else {
-        await sendMessage(post.text, post.link ?? undefined);
+        await sendMessage(post.text, link, name);
       }
 
       markSent(post.id);
