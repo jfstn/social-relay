@@ -6,10 +6,56 @@ export interface FacebookPost {
   text: string;
   link: string | null;
   images: string[];
+  pageName: string;
 }
 
 function hash(text: string): string {
   return createHash("sha256").update(text).digest("hex").slice(0, 16);
+}
+
+function cleanPostText(raw: string, pageName: string): string {
+  let text = raw;
+
+  // Remove page name and timestamp header (e.g. "Freguesia de Caranguejeira\n1 h\n")
+  const headerPattern = new RegExp(
+    `^${pageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n.*?\\n+\\.?\\n*`,
+    "i"
+  );
+  text = text.replace(headerPattern, "");
+
+  // Remove reactions/engagement footer
+  // Matches: "Todas as reações:" or "All reactions:" and everything after
+  text = text.replace(
+    /\n*(Todas as reações|All reactions):[\s\S]*$/i,
+    ""
+  );
+
+  // Remove "Like/Comment/Share" buttons text
+  text = text.replace(/\n*(Gosto|Like)\n+(Comentar|Comment)(\n+(Partilhar|Share))?[\s\S]*$/i, "");
+
+  // Remove "See more" / "Ver mais" leftovers
+  text = text.replace(/\s*(See more|Ver mais)\s*/gi, "");
+
+  // Remove stray dots/middle dots that Facebook uses as separators
+  text = text.replace(/^[·.]\s*$/gm, "");
+
+  // Clean up excessive whitespace
+  text = text.replace(/\n{3,}/g, "\n\n").trim();
+
+  return text;
+}
+
+function cleanFacebookUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    // Remove tracking params
+    ["__cft__", "__cft__[0]", "__tn__", "ref", "__xts__", "__xts__[0]"].forEach(
+      (p) => parsed.searchParams.delete(p)
+    );
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }
 
 async function dismissDialogs(page: Page) {
@@ -94,6 +140,12 @@ export async function scrapePage(
     await page.evaluate(() => window.scrollBy(0, 1000));
     await page.waitForTimeout(3000);
 
+    // Get the page name to strip it from post text
+    const pageNameEl = page.locator('h1').first();
+    const pageName = (await pageNameEl.count()) > 0
+      ? (await pageNameEl.innerText()).trim()
+      : "";
+
     const articles = page.locator('div[role="article"]');
     const count = await articles.count();
 
@@ -129,6 +181,9 @@ export async function scrapePage(
           }
         }
 
+        // Clean the link
+        if (link) link = cleanFacebookUrl(link);
+
         // If post is truncated and has a permalink, fetch full text from the post page
         let text = previewText;
         let images: string[] = [];
@@ -143,6 +198,9 @@ export async function scrapePage(
           }
         }
 
+        // Clean the text
+        text = cleanPostText(text, pageName);
+
         // If we didn't get images from the full page, get them from the feed
         if (images.length === 0) {
           const imgs = el.locator("img[src*='fbcdn']");
@@ -154,7 +212,7 @@ export async function scrapePage(
         }
 
         const postId = hash(text.slice(0, 200));
-        posts.push({ id: postId, text, link, images });
+        posts.push({ id: postId, text, link, images, pageName });
       } catch {
         continue;
       }
