@@ -62,12 +62,7 @@ async function processPost(post: FacebookPost) {
 
   if (post.images.length > 0) {
     try {
-      if (post.text.length <= 800) {
-        await sendPhoto(post.images[0], post.text, link, name);
-      } else {
-        await sendPhoto(post.images[0]);
-        await sendMessage(post.text, link, name);
-      }
+      await sendPhoto(post.images[0], post.text, link, name);
     } catch {
       await sendMessage(post.text, link, name);
     }

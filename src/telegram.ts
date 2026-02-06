@@ -23,28 +23,23 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function formatMessage(text: string, opts?: { link?: string; pageName?: string }): string {
-  let msg = "";
+function formatMessage(text: string, limit: number, opts?: { link?: string; pageName?: string }): string {
+  const header = opts?.pageName ? `\ud83d\udce2 <b>${escapeHtml(opts.pageName)}</b>\n\n` : "";
+  const footer = opts?.link ? `\n\n\ud83d\udd17 <a href="${opts.link}">${t("viewOnFacebook")}</a>` : "";
+  const ellipsis = "\n(...)";
 
-  if (opts?.pageName) {
-    msg += `\ud83d\udce2 <b>${escapeHtml(opts.pageName)}</b>\n\n`;
+  const escaped = escapeHtml(text);
+  const maxBody = limit - header.length - footer.length;
+
+  if (escaped.length <= maxBody) {
+    return header + escaped + footer;
   }
 
-  msg += escapeHtml(text);
-
-  if (opts?.link) {
-    msg += `\n\n\ud83d\udd17 <a href="${opts.link}">${t("viewOnFacebook")}</a>`;
-  }
-
-  return msg;
+  return header + escaped.slice(0, maxBody - ellipsis.length) + ellipsis + footer;
 }
 
 export async function sendMessage(text: string, link?: string, pageName?: string) {
-  let message = formatMessage(text, { link, pageName });
-
-  if (message.length > LIMITS.TELEGRAM_MESSAGE) {
-    message = message.slice(0, LIMITS.TELEGRAM_MESSAGE - 6) + "\n(...)";
-  }
+  const message = formatMessage(text, LIMITS.TELEGRAM_MESSAGE, { link, pageName });
 
   const res = await fetch(`${API_BASE}/sendMessage`, {
     method: "POST",
@@ -53,7 +48,7 @@ export async function sendMessage(text: string, link?: string, pageName?: string
       chat_id: config.telegramChatId,
       text: message,
       parse_mode: "HTML",
-      disable_web_page_preview: false,
+      disable_web_page_preview: true,
     }),
   });
 
@@ -64,13 +59,9 @@ export async function sendMessage(text: string, link?: string, pageName?: string
 }
 
 export async function sendPhoto(photoUrl: string, caption?: string, link?: string, pageName?: string) {
-  let formattedCaption: string | undefined;
-  if (caption) {
-    formattedCaption = formatMessage(caption, { link, pageName });
-    if (formattedCaption.length > LIMITS.TELEGRAM_CAPTION) {
-      formattedCaption = formattedCaption.slice(0, LIMITS.TELEGRAM_CAPTION - 6) + "\n(...)";
-    }
-  }
+  const formattedCaption = caption
+    ? formatMessage(caption, LIMITS.TELEGRAM_CAPTION, { link, pageName })
+    : undefined;
 
   const res = await fetch(`${API_BASE}/sendPhoto`, {
     method: "POST",
