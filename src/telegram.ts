@@ -1,7 +1,20 @@
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
-const CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
+import { config } from "./config.js";
+import { LIMITS } from "./constants.js";
 
-const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const API_BASE = `https://api.telegram.org/bot${config.telegramBotToken}`;
+
+const strings: Record<string, Record<string, string>> = {
+  pt: {
+    viewOnFacebook: "Ver no Facebook",
+  },
+  en: {
+    viewOnFacebook: "View on Facebook",
+  },
+};
+
+function t(key: string): string {
+  return strings[config.language]?.[key] ?? strings.en[key] ?? key;
+}
 
 function escapeHtml(text: string): string {
   return text
@@ -10,38 +23,32 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function formatMessage(text: string, opts?: { link?: string; pageName?: string }): string {
-  let msg = "";
+function formatMessage(text: string, limit: number, opts?: { link?: string; pageName?: string }): string {
+  const header = opts?.pageName ? `\ud83d\udce2 <b>${escapeHtml(opts.pageName)}</b>\n\n` : "";
+  const footer = opts?.link ? `\n\n\ud83d\udd17 <a href="${opts.link}">${t("viewOnFacebook")}</a>` : "";
+  const ellipsis = "\n(...)";
 
-  if (opts?.pageName) {
-    msg += `\ud83d\udce2 <b>${escapeHtml(opts.pageName)}</b>\n\n`;
+  const escaped = escapeHtml(text);
+  const maxBody = limit - header.length - footer.length;
+
+  if (escaped.length <= maxBody) {
+    return header + escaped + footer;
   }
 
-  msg += escapeHtml(text);
-
-  if (opts?.link) {
-    msg += `\n\n\ud83d\udd17 <a href="${opts.link}">Ver no Facebook</a>`;
-  }
-
-  return msg;
+  return header + escaped.slice(0, maxBody - ellipsis.length) + ellipsis + footer;
 }
 
 export async function sendMessage(text: string, link?: string, pageName?: string) {
-  let message = formatMessage(text, { link, pageName });
-
-  // Telegram max message length is 4096
-  if (message.length > 4096) {
-    message = message.slice(0, 4090) + "\n(...)";
-  }
+  const message = formatMessage(text, LIMITS.TELEGRAM_MESSAGE, { link, pageName });
 
   const res = await fetch(`${API_BASE}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: CHAT_ID,
+      chat_id: config.telegramChatId,
       text: message,
       parse_mode: "HTML",
-      disable_web_page_preview: false,
+      disable_web_page_preview: true,
     }),
   });
 
@@ -52,20 +59,15 @@ export async function sendMessage(text: string, link?: string, pageName?: string
 }
 
 export async function sendPhoto(photoUrl: string, caption?: string, link?: string, pageName?: string) {
-  let formattedCaption: string | undefined;
-  if (caption) {
-    formattedCaption = formatMessage(caption, { link, pageName });
-    // Telegram caption limit is 1024
-    if (formattedCaption.length > 1024) {
-      formattedCaption = formattedCaption.slice(0, 1018) + "\n(...)";
-    }
-  }
+  const formattedCaption = caption
+    ? formatMessage(caption, LIMITS.TELEGRAM_CAPTION, { link, pageName })
+    : undefined;
 
   const res = await fetch(`${API_BASE}/sendPhoto`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: CHAT_ID,
+      chat_id: config.telegramChatId,
       photo: photoUrl,
       caption: formattedCaption,
       parse_mode: "HTML",

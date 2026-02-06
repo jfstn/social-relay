@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { LIMITS } from "./constants.js";
 
-const DATA_DIR = process.env.DATA_DIR || "./data";
-const STORE_FILE = `${DATA_DIR}/sent-posts.json`;
+const STORE_FILE = "./data/sent-posts.json";
 
 interface Store {
   sentIds: string[];
@@ -13,7 +13,7 @@ function load(): Store {
 }
 
 function save(store: Store) {
-  mkdirSync(DATA_DIR, { recursive: true });
+  mkdirSync("./data", { recursive: true });
   writeFileSync(STORE_FILE, JSON.stringify(store, null, 2));
 }
 
@@ -24,9 +24,8 @@ export function wasSent(id: string): boolean {
 export function markSent(id: string) {
   const store = load();
   store.sentIds.push(id);
-  // Keep only the last 500 to avoid unbounded growth
-  if (store.sentIds.length > 500) {
-    store.sentIds = store.sentIds.slice(-500);
+  if (store.sentIds.length > LIMITS.STORE_MAX_IDS) {
+    store.sentIds = store.sentIds.slice(-LIMITS.STORE_MAX_IDS);
   }
   save(store);
 }
