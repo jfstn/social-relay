@@ -1,7 +1,20 @@
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
-const CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
+import { config } from "./config.js";
+import { LIMITS } from "./constants.js";
 
-const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const API_BASE = `https://api.telegram.org/bot${config.telegramBotToken}`;
+
+const strings: Record<string, Record<string, string>> = {
+  pt: {
+    viewOnFacebook: "Ver no Facebook",
+  },
+  en: {
+    viewOnFacebook: "View on Facebook",
+  },
+};
+
+function t(key: string): string {
+  return strings[config.language]?.[key] ?? strings.en[key] ?? key;
+}
 
 function escapeHtml(text: string): string {
   return text
@@ -20,7 +33,7 @@ function formatMessage(text: string, opts?: { link?: string; pageName?: string }
   msg += escapeHtml(text);
 
   if (opts?.link) {
-    msg += `\n\n\ud83d\udd17 <a href="${opts.link}">Ver no Facebook</a>`;
+    msg += `\n\n\ud83d\udd17 <a href="${opts.link}">${t("viewOnFacebook")}</a>`;
   }
 
   return msg;
@@ -29,16 +42,15 @@ function formatMessage(text: string, opts?: { link?: string; pageName?: string }
 export async function sendMessage(text: string, link?: string, pageName?: string) {
   let message = formatMessage(text, { link, pageName });
 
-  // Telegram max message length is 4096
-  if (message.length > 4096) {
-    message = message.slice(0, 4090) + "\n(...)";
+  if (message.length > LIMITS.TELEGRAM_MESSAGE) {
+    message = message.slice(0, LIMITS.TELEGRAM_MESSAGE - 6) + "\n(...)";
   }
 
   const res = await fetch(`${API_BASE}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: CHAT_ID,
+      chat_id: config.telegramChatId,
       text: message,
       parse_mode: "HTML",
       disable_web_page_preview: false,
@@ -55,9 +67,8 @@ export async function sendPhoto(photoUrl: string, caption?: string, link?: strin
   let formattedCaption: string | undefined;
   if (caption) {
     formattedCaption = formatMessage(caption, { link, pageName });
-    // Telegram caption limit is 1024
-    if (formattedCaption.length > 1024) {
-      formattedCaption = formattedCaption.slice(0, 1018) + "\n(...)";
+    if (formattedCaption.length > LIMITS.TELEGRAM_CAPTION) {
+      formattedCaption = formattedCaption.slice(0, LIMITS.TELEGRAM_CAPTION - 6) + "\n(...)";
     }
   }
 
@@ -65,7 +76,7 @@ export async function sendPhoto(photoUrl: string, caption?: string, link?: strin
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: CHAT_ID,
+      chat_id: config.telegramChatId,
       photo: photoUrl,
       caption: formattedCaption,
       parse_mode: "HTML",
