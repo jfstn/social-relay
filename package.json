@@ -1,7 +1,7 @@
 {
-  "name": "fb-telegram-bot",
+  "name": "social-relay",
   "version": "1.0.0",
-  "description": "Monitors a Facebook page and sends new posts to Telegram",
+  "description": "Facebook-to-Telegram social relay — watches public Facebook pages and forwards new posts to Telegram",
   "type": "module",
   "scripts": {
     "start": "node --env-file=.env dist/index.js",

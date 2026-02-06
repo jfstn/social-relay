@@ -1,42 +1,128 @@
-import { scrapePage } from "./scraper.js";
+import { config } from "./config.js";
+import { scrapePage, FacebookPost } from "./scraper.js";
 import { sendMessage, sendPhoto } from "./telegram.js";
 import { wasSent, markSent } from "./store.js";
-
-const PAGE_URL =
-  process.env.FACEBOOK_PAGE_URL || "https://www.facebook.com/example-page";
-const BASE_INTERVAL_MIN = parseInt(process.env.CHECK_INTERVAL_MINUTES || "30", 10);
+import { TIMEOUTS } from "./constants.js";
 
 let lastBlockWarning = 0;
-const BLOCK_WARNING_COOLDOWN = 60 * 60 * 1000; // 1 hour
+
+function timestamp(): string {
+  return new Date().toLocaleTimeString("en-GB", {
+    timeZone: config.timezone,
+    hour12: false,
+  });
+}
+
+function pageLabel(url: string): string {
+  try {
+    return new URL(url).pathname.replace(/^\//, "").replace(/\/$/, "");
+  } catch {
+    return url;
+  }
+}
 
 function jitteredInterval(): number {
-  // +/- 30% of base interval
-  const jitter = BASE_INTERVAL_MIN * 0.3;
-  const minutes = BASE_INTERVAL_MIN + (Math.random() * 2 - 1) * jitter;
+  const base = config.checkIntervalMinutes;
+  const jitter = base * 0.3;
+  const minutes = base + (Math.random() * 2 - 1) * jitter;
   return Math.round(minutes * 60 * 1000);
 }
 
 function msUntilActive(): number {
-  const now = new Date(Date.now() + 0); // UTC
-  const pt = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Lisbon" }));
-  const hour = pt.getHours();
+  const { nightSleepStart, nightSleepEnd } = config;
+  if (nightSleepStart === nightSleepEnd) return 0;
 
-  if (hour >= 0 && hour < 8) {
-    // Sleep until 8:00 PT
-    const wake = new Date(pt);
-    wake.setHours(8, Math.floor(Math.random() * 30), 0, 0); // 8:00-8:30
-    return wake.getTime() - pt.getTime();
+  const now = new Date();
+  const local = new Date(now.toLocaleString("en-US", { timeZone: config.timezone }));
+  const hour = local.getHours();
+
+  if (hour >= nightSleepStart && hour < nightSleepEnd) {
+    const wake = new Date(local);
+    wake.setHours(nightSleepEnd, Math.floor(Math.random() * 30), 0, 0);
+    return wake.getTime() - local.getTime();
   }
   return 0;
+}
+
+async function handleBlockWarning() {
+  const now = Date.now();
+  if (now - lastBlockWarning > TIMEOUTS.BLOCK_WARNING_COOLDOWN) {
+    lastBlockWarning = now;
+    await sendMessage(
+      "Facebook is redirecting to login. Scraping may be blocked from this IP.",
+      undefined,
+      "Bot Warning"
+    ).catch((err) => console.error("Failed to send block warning:", err));
+  }
+}
+
+async function processPost(post: FacebookPost) {
+  const link = post.link ?? undefined;
+  const name = post.pageName || undefined;
+
+  if (post.images.length > 0) {
+    try {
+      await sendPhoto(post.images[0], post.text, link, name);
+    } catch {
+      await sendMessage(post.text, link, name);
+    }
+  } else {
+    await sendMessage(post.text, link, name);
+  }
+
+  markSent(post.id);
+  await new Promise((r) => setTimeout(r, TIMEOUTS.POST_DELAY));
+}
+
+async function check() {
+  const pages = config.pages;
+  console.log(
+    `\n[${timestamp()}] Checking ${pages.length} page${pages.length > 1 ? "s" : ""}...`
+  );
+
+  let totalNew = 0;
+
+  for (const url of pages) {
+    const label = pageLabel(url);
+
+    try {
+      const { posts, blocked, elementCount } = await scrapePage(url);
+
+      if (blocked) {
+        console.warn(`  [${label}] blocked — redirected to login`);
+        await handleBlockWarning();
+        continue;
+      }
+
+      let newCount = 0;
+
+      for (const post of posts.reverse()) {
+        if (wasSent(post.id)) continue;
+        newCount++;
+        await processPost(post);
+      }
+
+      totalNew += newCount;
+      console.log(
+        `  [${label}] ${elementCount} elements, ${posts.length} posts, ${newCount} new`
+      );
+    } catch (err) {
+      console.error(`  [${label}] Error:`, err);
+    }
+  }
+
+  if (totalNew > 0) {
+    console.log(`  Sent ${totalNew} new post(s)`);
+  }
 }
 
 function scheduleNext() {
   const sleep = msUntilActive();
   if (sleep > 0) {
-    console.log(`Night time in PT — sleeping ${(sleep / 1000 / 60 / 60).toFixed(1)}h until 8am`);
-    setTimeout(() => {
-      scheduleNext();
-    }, sleep);
+    console.log(
+      `Night time — sleeping ${(sleep / 1000 / 60 / 60).toFixed(1)}h until ${config.nightSleepEnd}:00`
+    );
+    setTimeout(() => scheduleNext(), sleep);
     return;
   }
 
@@ -48,76 +134,25 @@ function scheduleNext() {
   }, ms);
 }
 
-async function check() {
-  console.log(`[${new Date().toISOString()}] Checking ${PAGE_URL}...`);
-
-  try {
-    const { posts, blocked } = await scrapePage(PAGE_URL);
-
-    if (blocked) {
-      console.warn("Facebook blocked the request");
-      const now = Date.now();
-      if (now - lastBlockWarning > BLOCK_WARNING_COOLDOWN) {
-        lastBlockWarning = now;
-        await sendMessage(
-          "Facebook is redirecting to login. Scraping may be blocked from this IP.",
-          undefined,
-          "Bot Warning"
-        ).catch(() => {});
-      }
-      return;
-    }
-
-    console.log(`Found ${posts.length} posts`);
-
-    let newCount = 0;
-    // Process in reverse so oldest new posts are sent first
-    for (const post of posts.reverse()) {
-      if (wasSent(post.id)) continue;
-
-      newCount++;
-      console.log(`New post: ${post.text.slice(0, 80)}...`);
-
-      const link = post.link ?? undefined;
-      const name = post.pageName || undefined;
-
-      if (post.images.length > 0) {
-        try {
-          if (post.text.length <= 800) {
-            await sendPhoto(post.images[0], post.text, link, name);
-          } else {
-            await sendPhoto(post.images[0]);
-            await sendMessage(post.text, link, name);
-          }
-        } catch {
-          await sendMessage(post.text, link, name);
-        }
-      } else {
-        await sendMessage(post.text, link, name);
-      }
-
-      markSent(post.id);
-
-      // Small delay between messages to avoid rate limiting
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-
-    console.log(`Sent ${newCount} new post(s)`);
-  } catch (err) {
-    console.error("Error during check:", err);
-  }
-}
-
 async function main() {
-  console.log(`FB Telegram Bot starting`);
-  console.log(`Page: ${PAGE_URL}`);
-  console.log(`Interval: ~${BASE_INTERVAL_MIN} minutes (±30% jitter)`);
+  console.log("Social Relay starting (Facebook → Telegram)");
+  console.log(`Pages: ${config.pages.join(", ")}`);
+  console.log(
+    `Interval: ~${config.checkIntervalMinutes} minutes (±30% jitter)`
+  );
+  if (config.nightSleepStart !== config.nightSleepEnd) {
+    console.log(
+      `Night sleep: ${config.nightSleepStart}:00–${config.nightSleepEnd}:00 ${config.timezone}`
+    );
+  } else {
+    console.log("Night sleep: disabled");
+  }
 
-  // Run immediately on start
   await check();
-
-  // Schedule with random jitter
   scheduleNext();
 }
 
-main();
+main().catch((err) => {
+  console.error("Fatal error:", err);
+  process.exit(1);
+});
