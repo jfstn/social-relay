@@ -23,6 +23,16 @@ function cleanPostText(raw: string, pageName: string): string {
   );
   text = text.replace(headerPattern, "");
 
+  // Remove relative timestamp lines (e.g. "5 h", "2 d", "13 min") and trailing separators
+  text = text.replace(
+    /^\d+\s*(h|d|m|s|min|hr|hrs|hora|horas|dia|dias|sem|semana|semanas)\b[^\n]*\n?[\s·.]*/gim,
+    ""
+  );
+  text = text.replace(
+    /^(Just now|Agora mesmo|Agora|Yesterday|Ontem|Há\s+\d+\s+[^\n]+)\n?[\s·.]*/gim,
+    ""
+  );
+
   // Remove reactions/engagement footer
   // Matches: "Todas as reações:" or "All reactions:" and everything after
   text = text.replace(
@@ -43,6 +53,20 @@ function cleanPostText(raw: string, pageName: string): string {
   text = text.replace(/\n{3,}/g, "\n\n").trim();
 
   return text;
+}
+
+/** Strip volatile content (relative timestamps, author headers) so the hash is stable over time. */
+function stripVolatileForHash(text: string): string {
+  return text
+    // Remove relative timestamps on their own line: "5 h", "2 d", "13 min", "1 sem", etc.
+    .replace(/^\d+\s*(h|d|m|s|min|hr|hrs|hora|horas|dia|dias|sem|semana|semanas)\b.*$/gim, "")
+    // Remove "Just now" / "Agora mesmo" / "Yesterday" / "Ontem" / "Há X …"
+    .replace(/^(Just now|Agora mesmo|Agora|Yesterday|Ontem|Há\s+\d+\s+.+)$/gim, "")
+    // Remove stray separators left behind
+    .replace(/^[·.\s]*$/gm, "")
+    // Collapse whitespace
+    .replace(/\n{2,}/g, "\n")
+    .trim();
 }
 
 function cleanFacebookUrl(url: string): string {
@@ -211,7 +235,11 @@ export async function scrapePage(
           }
         }
 
-        const postId = hash(text.slice(0, 200));
+        // Use permalink as the stable ID (timestamps in text change over time).
+        // Fall back to hashing text with volatile content stripped.
+        const postId = link
+          ? hash(link)
+          : hash(stripVolatileForHash(text).slice(0, 200));
         posts.push({ id: postId, text, link, images, pageName });
       } catch {
         continue;
