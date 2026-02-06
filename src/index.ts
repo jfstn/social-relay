@@ -6,6 +6,9 @@ const PAGE_URL =
   process.env.FACEBOOK_PAGE_URL || "https://www.facebook.com/example-page";
 const BASE_INTERVAL_MIN = parseInt(process.env.CHECK_INTERVAL_MINUTES || "30", 10);
 
+let lastBlockWarning = 0;
+const BLOCK_WARNING_COOLDOWN = 60 * 60 * 1000; // 1 hour
+
 function jitteredInterval(): number {
   // +/- 30% of base interval
   const jitter = BASE_INTERVAL_MIN * 0.3;
@@ -49,7 +52,22 @@ async function check() {
   console.log(`[${new Date().toISOString()}] Checking ${PAGE_URL}...`);
 
   try {
-    const posts = await scrapePage(PAGE_URL);
+    const { posts, blocked } = await scrapePage(PAGE_URL);
+
+    if (blocked) {
+      console.warn("Facebook blocked the request");
+      const now = Date.now();
+      if (now - lastBlockWarning > BLOCK_WARNING_COOLDOWN) {
+        lastBlockWarning = now;
+        await sendMessage(
+          "Facebook is redirecting to login. Scraping may be blocked from this IP.",
+          undefined,
+          "Bot Warning"
+        ).catch(() => {});
+      }
+      return;
+    }
+
     console.log(`Found ${posts.length} posts`);
 
     let newCount = 0;
