@@ -1,6 +1,5 @@
 import { chromium } from "playwright-extra";
 import stealth from "puppeteer-extra-plugin-stealth";
-import { createHash } from "crypto";
 import { writeFileSync, mkdirSync } from "fs";
 import { config } from "./config.js";
 import { TIMEOUTS, LIMITS, DELAYS } from "./constants.js";
@@ -20,10 +19,6 @@ export interface ScrapeResult {
   blocked: boolean;
   pageName: string;
   elementCount: number;
-}
-
-function hash(text: string): string {
-  return createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 
 function randomDelay(minMs: number, maxMs: number): number {
@@ -63,8 +58,7 @@ function cleanPostText(raw: string, pageName: string): string {
 function cleanFacebookUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    ["__cft__", "__cft__[0]", "__tn__", "ref", "__xts__", "__xts__[0]", "refid", "paipv", "_rdr"]
-      .forEach((p) => parsed.searchParams.delete(p));
+    parsed.search = "";
     return parsed.toString();
   } catch {
     return url;
@@ -92,38 +86,61 @@ async function dismissPopups(page: any) {
   }
 }
 
-async function extractPost(el: any, pageName: string): Promise<FacebookPost | null> {
+async function extractPermalink(el: any): Promise<string | null> {
   try {
-    const previewText = (await el.innerText()).trim();
-    if (previewText.length < LIMITS.MIN_POST_TEXT) return null;
-
-    let link: string | null = null;
     const permalinks = el.locator(
       'a[href*="/posts/"], a[href*="/photos/"], a[href*="story_fbid"], a[href*="/videos/"], a[href*="/permalink/"]'
     );
-    if ((await permalinks.count()) > 0) {
-      const href = await permalinks.first().getAttribute("href");
-      if (href) {
-        const fullUrl = href.startsWith("http") ? href : `https://www.facebook.com${href}`;
-        link = cleanFacebookUrl(fullUrl);
-      }
-    }
+    if ((await permalinks.count()) === 0) return null;
+    const href = await permalinks.first().getAttribute("href");
+    if (!href) return null;
+    const fullUrl = href.startsWith("http") ? href : `https://www.facebook.com${href}`;
+    return cleanFacebookUrl(fullUrl);
+  } catch {
+    return null;
+  }
+}
 
-    const text = cleanPostText(previewText, pageName);
+async function scrapePostPage(
+  context: any,
+  link: string,
+  pageName: string
+): Promise<FacebookPost | null> {
+  const postPage = await context.newPage();
+  try {
+    await postPage.goto(link, { waitUntil: "networkidle", timeout: TIMEOUTS.BROWSER });
+    await dismissPopups(postPage);
+    await postPage.waitForTimeout(randomDelay(DELAYS.POPUP.min, DELAYS.POPUP.max));
+
+    dumpDebug("post", await postPage.content());
+
+    const article = postPage.locator('div[role="article"]').first();
+    if ((await article.count()) === 0) return null;
+
+    const rawText = (await article.innerText()).trim();
+    if (rawText.length < LIMITS.MIN_POST_TEXT) return null;
+
+    const text = cleanPostText(rawText, pageName);
     if (text.length < LIMITS.MIN_CLEANED_TEXT) return null;
 
     const images: string[] = [];
-    const imgs = el.locator("img[src*='fbcdn']");
+    const imgs = article.locator("img[src*='fbcdn']");
     const imgCount = await imgs.count();
-    for (let j = 0; j < Math.min(imgCount, LIMITS.MAX_IMAGES); j++) {
-      const src = await imgs.nth(j).getAttribute("src");
-      if (src) images.push(src);
+    for (let j = 0; j < imgCount && images.length < LIMITS.MAX_IMAGES; j++) {
+      const img = imgs.nth(j);
+      const src = await img.getAttribute("src");
+      if (!src) continue;
+      const box = await img.boundingBox();
+      if (box && box.width > 150 && box.height > 150) {
+        images.push(src);
+      }
     }
 
-    const postId = link ? hash(link) : hash(text.slice(0, 200));
-    return { id: postId, text, link, images, pageName };
+    return { id: link, text, link, images, pageName };
   } catch {
     return null;
+  } finally {
+    await postPage.close();
   }
 }
 
@@ -171,16 +188,24 @@ export async function scrapePage(pageUrl: string): Promise<ScrapeResult> {
       return { posts: [], blocked: false, pageName, elementCount: 0 };
     }
 
-    const posts: FacebookPost[] = [];
+    // Collect permalinks from feed
+    const permalinks: string[] = [];
     const maxPosts = Math.min(count, LIMITS.MAX_POSTS);
 
     for (let i = 0; i < maxPosts; i++) {
       const el = articles.nth(i);
-      await page.waitForTimeout(randomDelay(DELAYS.BETWEEN_ARTICLES.min, DELAYS.BETWEEN_ARTICLES.max));
       await el.scrollIntoViewIfNeeded();
+      const link = await extractPermalink(el);
+      if (link) permalinks.push(link);
+      await page.waitForTimeout(randomDelay(DELAYS.BETWEEN_ARTICLES.min, DELAYS.BETWEEN_ARTICLES.max));
+    }
 
-      const post = await extractPost(el, pageName);
+    // Visit each post page to get full text
+    const posts: FacebookPost[] = [];
+    for (const link of permalinks) {
+      const post = await scrapePostPage(context, link, pageName);
       if (post) posts.push(post);
+      await page.waitForTimeout(randomDelay(DELAYS.BETWEEN_ARTICLES.min, DELAYS.BETWEEN_ARTICLES.max));
     }
 
     return { posts, blocked: false, pageName, elementCount: count };
