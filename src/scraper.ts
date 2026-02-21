@@ -55,11 +55,40 @@ function cleanPostText(raw: string, pageName: string): string {
   return text;
 }
 
+function extractPostId(url: string): string {
+  try {
+    const parsed = new URL(url);
+
+    // Query param IDs: story_fbid or fbid (used by permalink.php, story.php, photo.php)
+    const storyFbid = parsed.searchParams.get("story_fbid");
+    if (storyFbid) return storyFbid;
+
+    const fbid = parsed.searchParams.get("fbid");
+    if (fbid) return fbid;
+
+    // Path-based IDs: /posts/ID, /photos/.../ID, /videos/ID, /permalink/ID
+    const pathMatch = parsed.pathname.match(
+      /\/(?:posts|photos|videos|permalink)\/(?:[\w.]+\/)*(pfbid[\w]+|\d+)/
+    );
+    if (pathMatch) return pathMatch[1];
+  } catch {
+    // fall through
+  }
+
+  // Fallback: use the full URL
+  return url;
+}
+
 function cleanFacebookUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    parsed.search = "";
-    return parsed.toString();
+    const essentialParams = ["story_fbid", "id", "fbid", "set"];
+    const cleaned = new URL(parsed.origin + parsed.pathname);
+    for (const key of essentialParams) {
+      const val = parsed.searchParams.get(key);
+      if (val) cleaned.searchParams.set(key, val);
+    }
+    return cleaned.toString();
   } catch {
     return url;
   }
@@ -136,7 +165,7 @@ async function scrapePostPage(
       }
     }
 
-    return { id: link, text, link, images, pageName };
+    return { id: extractPostId(link), text, link, images, pageName };
   } catch {
     return null;
   } finally {
