@@ -1,5 +1,6 @@
 import { chromium } from "playwright-extra";
 import stealth from "puppeteer-extra-plugin-stealth";
+import { createHash } from "crypto";
 import { writeFileSync, mkdirSync } from "fs";
 import { config } from "./config.js";
 import { TIMEOUTS, LIMITS, DELAYS } from "./constants.js";
@@ -8,6 +9,7 @@ chromium.use(stealth());
 
 export interface FacebookPost {
   id: string;
+  textHash: string;
   text: string;
   link: string | null;
   images: string[];
@@ -77,6 +79,13 @@ function extractPostId(url: string): string {
 
   // Fallback: use the full URL
   return url;
+}
+
+function contentFingerprint(text: string): string {
+  // Normalize whitespace and take first 200 chars to produce a stable hash
+  // even if Facebook adds/removes trailing metadata between scrapes
+  const normalized = text.replace(/\s+/g, " ").trim().slice(0, 200);
+  return createHash("sha256").update(normalized).digest("hex").slice(0, 16);
 }
 
 function cleanFacebookUrl(url: string): string {
@@ -165,7 +174,7 @@ async function scrapePostPage(
       }
     }
 
-    return { id: extractPostId(link), text, link, images, pageName };
+    return { id: extractPostId(link), textHash: contentFingerprint(text), text, link, images, pageName };
   } catch {
     return null;
   } finally {

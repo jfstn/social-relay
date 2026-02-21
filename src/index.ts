@@ -70,7 +70,7 @@ async function processPost(post: FacebookPost) {
     await sendMessage(post.text, link, name);
   }
 
-  markSent(post.id);
+  markSent(post.id, post.textHash);
   await new Promise((r) => setTimeout(r, TIMEOUTS.POST_DELAY));
 }
 
@@ -97,7 +97,7 @@ async function check() {
       let newCount = 0;
 
       for (const post of posts.reverse()) {
-        if (wasSent(post.id)) continue;
+        if (wasSent(post.id, post.textHash)) continue;
         newCount++;
         await processPost(post);
       }
