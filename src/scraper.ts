@@ -9,7 +9,6 @@ chromium.use(stealth());
 
 export interface FacebookPost {
   id: string;
-  textHash: string;
   text: string;
   link: string | null;
   images: string[];
@@ -57,33 +56,7 @@ function cleanPostText(raw: string, pageName: string): string {
   return text;
 }
 
-function extractPostId(url: string): string {
-  try {
-    const parsed = new URL(url);
-
-    // Query param IDs: story_fbid or fbid (used by permalink.php, story.php, photo.php)
-    const storyFbid = parsed.searchParams.get("story_fbid");
-    if (storyFbid) return storyFbid;
-
-    const fbid = parsed.searchParams.get("fbid");
-    if (fbid) return fbid;
-
-    // Path-based IDs: /posts/ID, /photos/.../ID, /videos/ID, /permalink/ID
-    const pathMatch = parsed.pathname.match(
-      /\/(?:posts|photos|videos|permalink)\/(?:[\w.]+\/)*(pfbid[\w]+|\d+)/
-    );
-    if (pathMatch) return pathMatch[1];
-  } catch {
-    // fall through
-  }
-
-  // Fallback: use the full URL
-  return url;
-}
-
 function contentFingerprint(text: string): string {
-  // Normalize whitespace and take first 200 chars to produce a stable hash
-  // even if Facebook adds/removes trailing metadata between scrapes
   const normalized = text.replace(/\s+/g, " ").trim().slice(0, 200);
   return createHash("sha256").update(normalized).digest("hex").slice(0, 16);
 }
@@ -174,7 +147,7 @@ async function scrapePostPage(
       }
     }
 
-    return { id: extractPostId(link), textHash: contentFingerprint(text), text, link, images, pageName };
+    return { id: contentFingerprint(text), text, link, images, pageName };
   } catch {
     return null;
   } finally {
