@@ -1,34 +1,39 @@
 # Social Relay
 
-Facebook-to-Telegram relay bot. Watches one or more public Facebook pages and forwards new posts (text + images) to a Telegram chat.
+Bot that watches public Facebook pages and sends new posts to Telegram. Text, images, links — everything goes to your chat automatically.
+
+No Facebook API needed, no login needed. It just opens the page like a normal person would and reads what is there.
+
+## Why this exists
+
+Some organizations (parishes, local councils, small clubs...) only post on Facebook. If you dont want to check their page every day, this bot does it for you and sends everything to Telegram.
 
 ## How it works
 
-1. Periodically scrapes each configured Facebook page using a headless browser (Playwright + stealth plugin)
-2. Extracts post text, images, and permalink from the page
-3. Deduplicates against previously sent posts
-4. Forwards new posts to Telegram with the page name, cleaned text, and a link back to Facebook
+1. Opens each Facebook page with a headless browser (Playwright)
+2. Reads the posts, cleans the text, grabs images
+3. Checks if the post was already sent before
+4. If its new — sends to Telegram with the page name and a link back to Facebook
+5. Waits, then checks again
 
-No Facebook API or login required — it reads public pages the same way any visitor would.
+## Important — use residential IP
 
-## Important: use a residential IP
+Facebook blocks datacenter IPs very fast. If you run this on a normal VPS or cloud server, it will get redirected to the login page almost immediately.
 
-Facebook aggressively blocks datacenter IPs. If you run this on a typical VPS or cloud server, requests will be redirected to a login page almost immediately.
+**You need a residential IP.** Some options:
 
-**You need a residential IP.** Options:
+- Home server, Raspberry Pi, NAS — anything behind a normal ISP connection
+- Residential proxy service
+- VPN with residential IP option
 
-- Run on a home server / Raspberry Pi / NAS behind a regular ISP connection
-- Use a residential proxy (configure at the OS or browser level)
-- Some VPN providers offer residential IPs
-
-The bot detects blocks and sends a warning to Telegram when it gets redirected to login.
+The bot detects when it gets blocked and sends a warning message to Telegram.
 
 ## Setup
 
-### Prerequisites
+### Requirements
 
 - Node.js 20+
-- pnpm (or npm/yarn)
+- pnpm
 
 ### Install
 
@@ -39,73 +44,79 @@ npx playwright install chromium
 
 ### Configure
 
-Copy `.env.example` to `.env` and fill in your values:
-
 ```bash
 cp .env.example .env
 ```
 
-Required variables:
+Then edit `.env` and fill in your values. You need at minimum:
 
 ```env
 TELEGRAM_BOT_TOKEN=your-bot-token
 TELEGRAM_CHAT_ID=your-chat-id
-FACEBOOK_PAGES=https://www.facebook.com/page1,https://www.facebook.com/page2
+FACEBOOK_PAGES=https://www.facebook.com/somepage,https://www.facebook.com/anotherpage
 ```
 
-See [Configuration reference](#configuration-reference) for all options.
+#### How to get Telegram credentials
 
-#### Getting the Telegram credentials
+1. Talk to [@BotFather](https://t.me/BotFather) on Telegram, create a new bot, copy the token
+2. Add your bot to the chat or group where you want the posts
+3. Send any message in that chat, then open `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` in browser — you will see the `chat_id` there
 
-1. Message [@BotFather](https://t.me/BotFather) on Telegram, create a bot, copy the token
-2. Add the bot to your target chat/group
-3. Send a message in the chat, then visit `https://api.telegram.org/bot<TOKEN>/getUpdates` to find the `chat_id`
-
-## Run
+### Run
 
 ```bash
-# Development
+# development
 pnpm dev
 
-# Production
-pnpm build
-pnpm start
+# production
+pnpm build && pnpm start
 
-# Debug mode (saves HTML snapshots to data/debug/)
+# debug mode — saves HTML snapshots to data/debug/
 DEBUG=1 pnpm dev
 ```
 
-## Configuration reference
+### Docker
+
+```bash
+docker build -t social-relay .
+docker run --env-file .env -v ./data:/app/data social-relay
+```
+
+## Configuration
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `TELEGRAM_BOT_TOKEN` | Yes | — | Telegram Bot API token |
-| `TELEGRAM_CHAT_ID` | Yes | — | Target Telegram chat/group ID |
-| `FACEBOOK_PAGES` | Yes | — | Comma-separated Facebook page URLs |
-| `CHECK_INTERVAL_MINUTES` | No | `30` | Base check interval in minutes (jittered ±30%) |
-| `TIMEZONE` | No | `Europe/Lisbon` | Timezone for night sleep window |
-| `NIGHT_SLEEP_START` | No | `0` | Hour to start sleeping (0-23) |
-| `NIGHT_SLEEP_END` | No | `8` | Hour to wake up (0-23). Set equal to start to disable |
-| `BOT_LANGUAGE` | No | `en` | Telegram message language. Supported: `en`, `pt` |
-| `DEBUG` | No | `0` | Set to `1` to save HTML snapshots to `data/debug/` |
+| `TELEGRAM_BOT_TOKEN` | yes | — | Telegram Bot API token from BotFather |
+| `TELEGRAM_CHAT_ID` | yes | — | Chat or group ID where posts are sent |
+| `FACEBOOK_PAGES` | yes | — | Comma-separated list of Facebook page URLs |
+| `CHECK_INTERVAL_MINUTES` | no | `30` | How often to check, in minutes (±30% random jitter) |
+| `TIMEZONE` | no | `Europe/Lisbon` | Timezone for the night sleep window |
+| `NIGHT_SLEEP_START` | no | `0` | Hour to stop checking (0–23) |
+| `NIGHT_SLEEP_END` | no | `8` | Hour to start checking again (0–23). Same as start = no sleep |
+| `BOT_LANGUAGE` | no | `en` | Language for Telegram messages (`en` or `pt`) |
+| `DEBUG` | no | `0` | Set `1` to save HTML page snapshots for debugging |
 
-## Anti-detection
+## How it avoids detection
 
-- **Stealth plugin** — patches Playwright to avoid bot fingerprinting
-- **Realistic user agent** — mimics a standard Chrome browser
-- **Jittered intervals** — check timing varies ±30% to avoid predictable patterns
-- **Randomized page actions** — delays between clicks, scrolls, and interactions vary randomly
-- **Night sleep** — bot pauses during configurable hours to mimic human activity patterns
-- **Cookie/popup dismissal** — handles Facebook consent banners and login popups
+- Stealth browser plugin (hides that its a bot)
+- Normal Chrome user agent
+- Random delays between actions
+- Check interval has ±30% jitter so its not always the same time
+- Night sleep mode — bot pauses during night hours like a real person
+- Handles cookie popups and login dialogs automatically
 
 ## Project structure
 
 ```
 src/
-  config.ts      — env var parsing and validation
-  constants.ts   — timeouts, limits, and delay ranges
-  index.ts       — main loop, scheduling, orchestration
-  scraper.ts     — headless browser scraping logic
-  telegram.ts    — Telegram Bot API client
-  store.ts       — sent post deduplication (JSON file)
+  config.ts      env var parsing and validation
+  constants.ts   timeouts, limits, delay ranges
+  index.ts       main loop and scheduling
+  scraper.ts     headless browser scraping
+  telegram.ts    Telegram Bot API client
+  store.ts       post deduplication (JSON file store)
 ```
+
+## License
+
+MIT

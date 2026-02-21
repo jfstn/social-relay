@@ -2,6 +2,7 @@
   "name": "social-relay",
   "version": "1.0.0",
   "description": "Facebook-to-Telegram social relay — watches public Facebook pages and forwards new posts to Telegram",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "start": "node --env-file=.env dist/index.js",
