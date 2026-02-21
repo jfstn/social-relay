@@ -2,7 +2,7 @@
 
 Bot that watches public Facebook pages and sends new posts to Telegram. Text, images, links — everything goes to your chat automatically.
 
-No Facebook API needed, no login needed. It just opens the page like a normal person would and reads what is there.
+No Facebook API needed, no login needed, no Facebook account needed. It just opens the page like a normal person would and reads what is there.
 
 ## Why this exists
 
