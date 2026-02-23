@@ -148,7 +148,8 @@ async function scrapePostPage(
     }
 
     return { id: contentFingerprint(text), text, link, images, pageName };
-  } catch {
+  } catch (err) {
+    console.warn(`  Failed to scrape post ${link}:`, err instanceof Error ? err.message : err);
     return null;
   } finally {
     await postPage.close();
