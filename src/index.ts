@@ -36,9 +36,16 @@ function msUntilActive(): number {
   const local = new Date(now.toLocaleString("en-US", { timeZone: config.timezone }));
   const hour = local.getHours();
 
-  if (hour >= nightSleepStart && hour < nightSleepEnd) {
+  const isSleeping = nightSleepStart < nightSleepEnd
+    ? hour >= nightSleepStart && hour < nightSleepEnd
+    : hour >= nightSleepStart || hour < nightSleepEnd;
+
+  if (isSleeping) {
     const wake = new Date(local);
     wake.setHours(nightSleepEnd, Math.floor(Math.random() * 30), 0, 0);
+    if (wake.getTime() <= local.getTime()) {
+      wake.setDate(wake.getDate() + 1);
+    }
     return wake.getTime() - local.getTime();
   }
   return 0;

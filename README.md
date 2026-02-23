@@ -1,4 +1,4 @@
-# :repeat: Social Relay
+# Social Relay
 
 Get Telegram notifications when a public Facebook page posts something new. No Facebook account or API key needed.
 
@@ -9,13 +9,13 @@ Facebook Page  ──>  Headless Browser  ──>  Telegram Chat
   (public)         (scrape + detect new)    (text + images + link)
 ```
 
-## :thinking: Why this exists
+## Why this exists
 
 Some local pages — parishes, small councils, sport clubs, community groups — only post updates on Facebook. If you don't use Facebook (or just don't want to keep checking), this bot watches those pages for you and sends updates straight to Telegram.
 
 It was built to solve a very specific problem: not missing posts from the local parish page without having to open Facebook every day.
 
-## :gear: How it works
+## How it works
 
 1. Opens each Facebook page with a headless browser (like a normal visitor would)
 2. Grabs the post text, images and permalink
@@ -28,13 +28,13 @@ Facebook blocks datacenter IPs pretty aggressively. If you run this on a regular
 
 **You need a residential IP.** Some options:
 
-- :house: Home server, Raspberry Pi, NAS — anything behind a normal ISP connection
-- :globe_with_meridians: Residential proxy service
-- :lock: Some VPN providers offer residential IPs
+- Home server, Raspberry Pi, NAS — anything behind a normal ISP connection
+- Residential proxy service
+- Some VPN providers offer residential IPs
 
 The bot detects when it gets blocked and sends a warning to Telegram.
 
-## :rocket: Setup
+## Setup
 
 ### Prerequisites
 
@@ -68,7 +68,7 @@ FACEBOOK_PAGES=https://www.facebook.com/page1,https://www.facebook.com/page2
 2. Add the bot to your chat or group
 3. Send a message there, then open `https://api.telegram.org/bot<TOKEN>/getUpdates` to find the `chat_id`
 
-## :arrow_forward: Run
+## Run
 
 ```bash
 # Development
@@ -89,13 +89,13 @@ docker build -t social-relay .
 docker run -d --env-file .env -v ./data:/app/data social-relay
 ```
 
-## :clipboard: Configuration
+## Configuration
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `TELEGRAM_BOT_TOKEN` | :white_check_mark: | — | Telegram Bot API token |
-| `TELEGRAM_CHAT_ID` | :white_check_mark: | — | Target chat/group ID |
-| `FACEBOOK_PAGES` | :white_check_mark: | — | Comma-separated page URLs |
+| `TELEGRAM_BOT_TOKEN` | Yes | — | Telegram Bot API token |
+| `TELEGRAM_CHAT_ID` | Yes | — | Target chat/group ID |
+| `FACEBOOK_PAGES` | Yes | — | Comma-separated page URLs |
 | `CHECK_INTERVAL_MINUTES` | | `30` | Check interval in minutes (±30% jitter) |
 | `TIMEZONE` | | `UTC` | Timezone for the sleep window |
 | `NIGHT_SLEEP_START` | | `0` | Hour to start sleeping (0-23) |
@@ -103,7 +103,7 @@ docker run -d --env-file .env -v ./data:/app/data social-relay
 | `BOT_LANGUAGE` | | `en` | Message language (`en`, `pt`) |
 | `DEBUG` | | `0` | Save HTML snapshots to `data/debug/` |
 
-## :mage: Anti-detection
+## Anti-detection
 
 Facebook doesn't like bots, so there's a few things in place:
 
@@ -114,7 +114,7 @@ Facebook doesn't like bots, so there's a few things in place:
 - **Night sleep** — pauses during configurable hours like a human would
 - **Popup handling** — dismisses cookie banners and login popups
 
-## :file_folder: Project structure
+## Project structure
 
 ```
 src/
@@ -126,6 +126,6 @@ src/
   store.ts       — sent post deduplication
 ```
 
-## :page_facing_up: License
+## License
 
 [MIT](LICENSE)
