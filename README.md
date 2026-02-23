@@ -89,6 +89,32 @@ docker build -t social-relay .
 docker run -d --env-file .env -v ./data:/app/data social-relay
 ```
 
+### Docker Compose
+
+```bash
+cp .env.example .env
+# fill in your values
+docker compose up -d
+```
+
+### Coolify
+
+This is a background worker (no HTTP port), so the Docker Compose build pack works best.
+
+1. In Coolify, create a new resource and connect your repo (or use the public GitHub URL)
+2. Select **Docker Compose** as the build pack
+3. Go to **Environment Variables** and add:
+   - `TELEGRAM_BOT_TOKEN` (required)
+   - `TELEGRAM_CHAT_ID` (required)
+   - `FACEBOOK_PAGES` (required)
+   - Any optional vars from the [Configuration](#configuration) table
+4. Go to **Storages** and add a volume with destination `/app/data` — this keeps the sent-post history across deploys
+5. Under **General** settings, clear the **Domains** field (this is a worker, not a web app)
+6. Disable **Health Check** — there's no HTTP endpoint to check
+7. Deploy
+
+The included `docker-compose.yml` already sets `shm_size: 1gb` (needed for Chromium) and `restart: unless-stopped`.
+
 ## Configuration
 
 | Variable | Required | Default | Description |

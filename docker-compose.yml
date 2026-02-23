@@ -1,0 +1,22 @@
+services:
+  social-relay:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    shm_size: '1gb'
+    volumes:
+      - social-relay-data:/app/data
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - FACEBOOK_PAGES=${FACEBOOK_PAGES}
+      - CHECK_INTERVAL_MINUTES=${CHECK_INTERVAL_MINUTES:-30}
+      - TIMEZONE=${TIMEZONE:-UTC}
+      - NIGHT_SLEEP_START=${NIGHT_SLEEP_START:-0}
+      - NIGHT_SLEEP_END=${NIGHT_SLEEP_END:-8}
+      - BOT_LANGUAGE=${BOT_LANGUAGE:-en}
+      - DEBUG=${DEBUG:-0}
+
+volumes:
+  social-relay-data:
