@@ -28,14 +28,28 @@ function formatMessage(text: string, limit: number, opts?: { link?: string; page
   const footer = opts?.link ? `\n\n\ud83d\udd17 <a href="${opts.link}">${t("viewOnFacebook")}</a>` : "";
   const ellipsis = "\n(...)";
 
-  const escaped = escapeHtml(text);
   const maxBody = limit - header.length - footer.length;
 
-  if (escaped.length <= maxBody) {
-    return header + escaped + footer;
+  if (escapeHtml(text).length <= maxBody) {
+    return header + escapeHtml(text) + footer;
   }
 
-  return header + escaped.slice(0, maxBody - ellipsis.length) + ellipsis + footer;
+  // Truncate the plain text first, then escape — so .slice() never cuts
+  // through HTML entities like &amp;. We walk the plain text tracking how
+  // many HTML characters each raw character would produce, and stop once
+  // we'd exceed the budget.
+  const budget = maxBody - ellipsis.length;
+  let htmlLen = 0;
+  let cutIndex = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const escapedLen = ch === "&" ? 5 : ch === "<" ? 4 : ch === ">" ? 4 : 1;
+    if (htmlLen + escapedLen > budget) break;
+    htmlLen += escapedLen;
+    cutIndex = i + 1;
+  }
+
+  return header + escapeHtml(text.slice(0, cutIndex)) + ellipsis + footer;
 }
 
 export async function sendMessage(text: string, link?: string, pageName?: string) {
