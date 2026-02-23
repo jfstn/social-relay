@@ -1,5 +1,6 @@
 import { chromium } from "playwright-extra";
 import stealth from "puppeteer-extra-plugin-stealth";
+import { createHash } from "crypto";
 import { writeFileSync, mkdirSync } from "fs";
 import { config } from "./config.js";
 import { TIMEOUTS, LIMITS, DELAYS } from "./constants.js";
@@ -55,11 +56,21 @@ function cleanPostText(raw: string, pageName: string): string {
   return text;
 }
 
+function contentFingerprint(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim().slice(0, 200);
+  return createHash("sha256").update(normalized).digest("hex").slice(0, 16);
+}
+
 function cleanFacebookUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    parsed.search = "";
-    return parsed.toString();
+    const keep = ["story_fbid", "id", "fbid", "set"];
+    const cleaned = new URL(parsed.origin + parsed.pathname);
+    for (const key of keep) {
+      const val = parsed.searchParams.get(key);
+      if (val) cleaned.searchParams.set(key, val);
+    }
+    return cleaned.toString();
   } catch {
     return url;
   }
@@ -136,7 +147,7 @@ async function scrapePostPage(
       }
     }
 
-    return { id: link, text, link, images, pageName };
+    return { id: contentFingerprint(text), text, link, images, pageName };
   } catch {
     return null;
   } finally {
