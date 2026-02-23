@@ -9,6 +9,21 @@ Facebook Page  ──>  Headless Browser  ──>  Telegram Chat
   (public)         (scrape + detect new)    (text + images + link)
 ```
 
+## Table of contents
+
+- [Why this exists](#why-this-exists)
+- [How it works](#how-it-works)
+- [Important: you need a residential IP](#warning-important-you-need-a-residential-ip)
+- [Setup](#setup)
+- [Run](#run)
+  - [Docker](#docker)
+  - [Docker Compose](#docker-compose)
+  - [Coolify](#coolify)
+- [Configuration](#configuration)
+- [Anti-detection](#anti-detection)
+- [Project structure](#project-structure)
+- [License](#license)
+
 ## Why this exists
 
 Some local pages — parishes, small councils, sport clubs, community groups — only post updates on Facebook. If you don't use Facebook (or just don't want to keep checking), this bot watches those pages for you and sends updates straight to Telegram.
