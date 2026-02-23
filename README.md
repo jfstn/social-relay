@@ -1,4 +1,4 @@
-# Social Relay
+# :repeat: Social Relay
 
 Get Telegram notifications when a public Facebook page posts something new. No Facebook account or API key needed.
 
