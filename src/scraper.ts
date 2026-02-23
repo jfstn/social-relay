@@ -157,21 +157,25 @@ async function scrapePostPage(
   }
 }
 
-export async function scrapePage(pageUrl: string): Promise<ScrapeResult> {
-  const browser = await chromium.launch({
+export async function launchBrowser() {
+  return chromium.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
+}
 
+export async function createBrowserContext(browser: any) {
+  const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+  return browser.newContext({
+    userAgent,
+    locale: "en-US",
+    viewport: { width: 1280, height: 900 },
+  });
+}
+
+export async function scrapePage(pageUrl: string, context: any): Promise<ScrapeResult> {
+  const page = await context.newPage();
   try {
-    const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-    const context = await browser.newContext({
-      userAgent,
-      locale: "en-US",
-      viewport: { width: 1280, height: 900 },
-    });
-
-    const page = await context.newPage();
     await page.goto(pageUrl, { waitUntil: "networkidle", timeout: TIMEOUTS.BROWSER });
 
     await dismissPopups(page);
@@ -223,6 +227,6 @@ export async function scrapePage(pageUrl: string): Promise<ScrapeResult> {
 
     return { posts, blocked: false, pageName, elementCount: count };
   } finally {
-    await browser.close();
+    await page.close();
   }
 }
