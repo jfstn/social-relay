@@ -1,4 +1,5 @@
 import { chromium } from "playwright-extra";
+import type { Page, BrowserContext, Locator } from "playwright";
 import stealth from "puppeteer-extra-plugin-stealth";
 import { createHash } from "crypto";
 import { writeFileSync, mkdirSync } from "fs";
@@ -76,7 +77,7 @@ function cleanFacebookUrl(url: string): string {
   }
 }
 
-async function dismissPopups(page: any) {
+async function dismissPopups(page: Page) {
   try {
     const cookieBtn = page.locator(
       'button:has-text("Allow all cookies"), button:has-text("Decline optional cookies"), ' +
@@ -97,7 +98,7 @@ async function dismissPopups(page: any) {
   }
 }
 
-async function extractPermalink(el: any): Promise<string | null> {
+async function extractPermalink(el: Locator): Promise<string | null> {
   try {
     const permalinks = el.locator(
       'a[href*="/posts/"], a[href*="/photos/"], a[href*="story_fbid"], a[href*="/videos/"], a[href*="/permalink/"]'
@@ -113,7 +114,7 @@ async function extractPermalink(el: any): Promise<string | null> {
 }
 
 async function scrapePostPage(
-  context: any,
+  context: BrowserContext,
   link: string,
   pageName: string
 ): Promise<FacebookPost | null> {
