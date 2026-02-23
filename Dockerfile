@@ -21,6 +21,5 @@ RUN pnpm prune --prod
 VOLUME /app/data
 
 ENV NODE_ENV=production
-ENV DATA_DIR=/app/data
 
 CMD ["node", "dist/index.js"]

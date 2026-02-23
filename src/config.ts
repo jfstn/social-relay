@@ -29,7 +29,7 @@ export const config: Config = {
     .map((s) => s.trim())
     .filter(Boolean),
   checkIntervalMinutes: parseInt(process.env.CHECK_INTERVAL_MINUTES || "30", 10),
-  timezone: process.env.TIMEZONE || "Europe/Lisbon",
+  timezone: process.env.TIMEZONE || "UTC",
   nightSleepStart: parseInt(process.env.NIGHT_SLEEP_START || "0", 10),
   nightSleepEnd: parseInt(process.env.NIGHT_SLEEP_END || "8", 10),
   language: process.env.BOT_LANGUAGE || "en",
