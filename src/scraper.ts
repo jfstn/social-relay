@@ -4,7 +4,7 @@ import stealth from "puppeteer-extra-plugin-stealth";
 import { createHash } from "crypto";
 import { writeFileSync, mkdirSync } from "fs";
 import { config } from "./config.js";
-import { TIMEOUTS, LIMITS, DELAYS } from "./constants.js";
+import { TIMEOUTS, LIMITS, DELAYS, USER_AGENTS } from "./constants.js";
 
 chromium.use(stealth());
 
@@ -164,9 +164,9 @@ export async function scrapePage(pageUrl: string): Promise<ScrapeResult> {
   });
 
   try {
+    const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
     const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      userAgent,
       locale: "en-US",
       viewport: { width: 1280, height: 900 },
     });
