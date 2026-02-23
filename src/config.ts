@@ -47,3 +47,24 @@ if (!SUPPORTED_LANGUAGES.includes(config.language as any)) {
   );
   process.exit(1);
 }
+
+if (isNaN(config.checkIntervalMinutes) || config.checkIntervalMinutes <= 0) {
+  console.error(
+    `CHECK_INTERVAL_MINUTES must be a positive number, got "${process.env.CHECK_INTERVAL_MINUTES}"`
+  );
+  process.exit(1);
+}
+
+if (isNaN(config.nightSleepStart) || config.nightSleepStart < 0 || config.nightSleepStart > 23) {
+  console.error(
+    `NIGHT_SLEEP_START must be an integer between 0 and 23, got "${process.env.NIGHT_SLEEP_START}"`
+  );
+  process.exit(1);
+}
+
+if (isNaN(config.nightSleepEnd) || config.nightSleepEnd < 0 || config.nightSleepEnd > 23) {
+  console.error(
+    `NIGHT_SLEEP_END must be an integer between 0 and 23, got "${process.env.NIGHT_SLEEP_END}"`
+  );
+  process.exit(1);
+}
