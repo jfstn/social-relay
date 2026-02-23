@@ -1,34 +1,40 @@
-# \ud83d\udd01 Social Relay
+# :repeat: Social Relay
 
-Get Telegram notifications whenever a public Facebook page posts something new.
+Get Telegram notifications when a public Facebook page posts something new. No Facebook account or API key needed.
 
-Point it at one or more Facebook pages, give it a Telegram bot token, and it will check periodically and forward new posts — text, images, and a link back to the original. No Facebook API key or login needed.
+You give it Facebook page URLs, a Telegram bot token, and it checks every now and then for new posts. When it finds one, it sends the text, images and a link to your Telegram chat.
 
 ```
-Facebook Page  ──\u279c  Headless Browser  ──\u279c  Telegram Chat
-  (public)          (scrape + detect new)     (text + images + link)
+Facebook Page  ──>  Headless Browser  ──>  Telegram Chat
+  (public)         (scrape + detect new)    (text + images + link)
 ```
 
-## \u2699\ufe0f How it works
+## :thinking: Why this exists
 
-1. Scrapes each configured Facebook page with a headless browser (Playwright + stealth plugin)
-2. Extracts post text, images, and permalink
-3. Skips posts it has already sent
-4. Forwards new posts to your Telegram chat
+Some local pages — parishes, small councils, sport clubs, community groups — only post updates on Facebook. If you don't use Facebook (or just don't want to keep checking), this bot watches those pages for you and sends updates straight to Telegram.
 
-## \u26a0\ufe0f Important: use a residential IP
+It was built to solve a very specific problem: not missing posts from the local parish page without having to open Facebook every day.
 
-Facebook aggressively blocks datacenter IPs. If you run this on a typical VPS or cloud server, requests will be redirected to a login page almost immediately.
+## :gear: How it works
 
-**You need a residential IP.** Options:
+1. Opens each Facebook page with a headless browser (like a normal visitor would)
+2. Grabs the post text, images and permalink
+3. Checks if it already sent that post before
+4. If it's new, sends it to your Telegram chat
 
-- \ud83c\udfe0 Run on a home server / Raspberry Pi / NAS behind a regular ISP connection
-- \ud83c\udf10 Use a residential proxy (configure at the OS or browser level)
-- \ud83d\udd12 Some VPN providers offer residential IPs
+## :warning: Important: you need a residential IP
 
-The bot detects blocks and sends a warning to Telegram when it gets redirected to login.
+Facebook blocks datacenter IPs pretty aggressively. If you run this on a regular VPS or cloud server, it will get redirected to a login page almost immediately.
 
-## \ud83d\ude80 Setup
+**You need a residential IP.** Some options:
+
+- :house: Home server, Raspberry Pi, NAS — anything behind a normal ISP connection
+- :globe_with_meridians: Residential proxy service
+- :lock: Some VPN providers offer residential IPs
+
+The bot detects when it gets blocked and sends a warning to Telegram.
+
+## :rocket: Setup
 
 ### Prerequisites
 
@@ -44,13 +50,11 @@ npx playwright install chromium
 
 ### Configure
 
-Copy `.env.example` to `.env` and fill in your values:
-
 ```bash
 cp .env.example .env
 ```
 
-Required variables:
+Then fill in your values:
 
 ```env
 TELEGRAM_BOT_TOKEN=your-bot-token
@@ -58,15 +62,13 @@ TELEGRAM_CHAT_ID=your-chat-id
 FACEBOOK_PAGES=https://www.facebook.com/page1,https://www.facebook.com/page2
 ```
 
-See [Configuration reference](#-configuration-reference) for all options.
+#### How to get the Telegram credentials
 
-#### Getting the Telegram credentials
+1. Talk to [@BotFather](https://t.me/BotFather) on Telegram, create a bot, copy the token
+2. Add the bot to your chat or group
+3. Send a message there, then open `https://api.telegram.org/bot<TOKEN>/getUpdates` to find the `chat_id`
 
-1. Message [@BotFather](https://t.me/BotFather) on Telegram, create a bot, copy the token
-2. Add the bot to your target chat/group
-3. Send a message in the chat, then visit `https://api.telegram.org/bot<TOKEN>/getUpdates` to find the `chat_id`
-
-## \u25b6\ufe0f Run
+## :arrow_forward: Run
 
 ```bash
 # Development
@@ -80,43 +82,50 @@ pnpm start
 DEBUG=1 pnpm dev
 ```
 
-There's also a Dockerfile if you prefer containers.
+### Docker
 
-## \ud83d\udccb Configuration reference
+```bash
+docker build -t social-relay .
+docker run -d --env-file .env -v ./data:/app/data social-relay
+```
+
+## :clipboard: Configuration
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `TELEGRAM_BOT_TOKEN` | \u2705 | — | Telegram Bot API token |
-| `TELEGRAM_CHAT_ID` | \u2705 | — | Target Telegram chat/group ID |
-| `FACEBOOK_PAGES` | \u2705 | — | Comma-separated Facebook page URLs |
-| `CHECK_INTERVAL_MINUTES` | | `30` | Base check interval in minutes (jittered \u00b130%) |
-| `TIMEZONE` | | `UTC` | Timezone for night sleep window |
+| `TELEGRAM_BOT_TOKEN` | :white_check_mark: | — | Telegram Bot API token |
+| `TELEGRAM_CHAT_ID` | :white_check_mark: | — | Target chat/group ID |
+| `FACEBOOK_PAGES` | :white_check_mark: | — | Comma-separated page URLs |
+| `CHECK_INTERVAL_MINUTES` | | `30` | Check interval in minutes (±30% jitter) |
+| `TIMEZONE` | | `UTC` | Timezone for the sleep window |
 | `NIGHT_SLEEP_START` | | `0` | Hour to start sleeping (0-23) |
-| `NIGHT_SLEEP_END` | | `8` | Hour to wake up (0-23). Set equal to start to disable |
-| `BOT_LANGUAGE` | | `en` | Telegram message language (`en`, `pt`) |
-| `DEBUG` | | `0` | Set to `1` to save HTML snapshots to `data/debug/` |
+| `NIGHT_SLEEP_END` | | `8` | Hour to wake up. Set equal to start to disable |
+| `BOT_LANGUAGE` | | `en` | Message language (`en`, `pt`) |
+| `DEBUG` | | `0` | Save HTML snapshots to `data/debug/` |
 
-## \ud83e\uddd9 Anti-detection
+## :mage: Anti-detection
 
-- **Stealth plugin** — patches Playwright to avoid bot fingerprinting
-- **Realistic user agent** — mimics a standard Chrome browser
-- **Jittered intervals** — check timing varies \u00b130% to avoid predictable patterns
-- **Randomized delays** — pauses between page actions vary randomly
-- **Night sleep** — bot pauses during configurable hours to mimic human activity patterns
-- **Cookie/popup dismissal** — handles Facebook consent banners and login popups
+Facebook doesn't like bots, so there's a few things in place:
 
-## \ud83d\udcc1 Project structure
+- **Stealth plugin** — patches the browser to avoid fingerprinting
+- **Realistic user agent** — looks like a normal Chrome browser
+- **Jittered intervals** — check timing varies ±30% so it's not predictable
+- **Random delays** — pauses between actions vary randomly
+- **Night sleep** — pauses during configurable hours like a human would
+- **Popup handling** — dismisses cookie banners and login popups
+
+## :file_folder: Project structure
 
 ```
 src/
   config.ts      — env var parsing and validation
-  constants.ts   — timeouts, limits, and delay ranges
-  index.ts       — main loop, scheduling, orchestration
-  scraper.ts     — headless browser scraping logic
+  constants.ts   — timeouts, limits, delay ranges
+  index.ts       — main loop and scheduling
+  scraper.ts     — headless browser scraping
   telegram.ts    — Telegram Bot API client
-  store.ts       — sent post deduplication (JSON file)
+  store.ts       — sent post deduplication
 ```
 
-## \ud83d\udcc4 License
+## :page_facing_up: License
 
 [MIT](LICENSE)
