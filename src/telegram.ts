@@ -1,7 +1,13 @@
 import { config } from "./config.js";
 import { LIMITS } from "./constants.js";
 
-const API_BASE = `https://api.telegram.org/bot${config.telegramBotToken}`;
+function apiUrl(method: string): string {
+  return `https://api.telegram.org/bot${config.telegramBotToken}/${method}`;
+}
+
+function redactToken(text: string): string {
+  return text.replaceAll(config.telegramBotToken, "[REDACTED]");
+}
 
 const strings: Record<string, Record<string, string>> = {
   pt: {
@@ -41,7 +47,7 @@ function formatMessage(text: string, limit: number, opts?: { link?: string; page
 export async function sendMessage(text: string, link?: string, pageName?: string) {
   const message = formatMessage(text, LIMITS.TELEGRAM_MESSAGE, { link, pageName });
 
-  const res = await fetch(`${API_BASE}/sendMessage`, {
+  const res = await fetch(apiUrl("sendMessage"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -54,7 +60,7 @@ export async function sendMessage(text: string, link?: string, pageName?: string
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Telegram API error ${res.status}: ${body}`);
+    throw new Error(`Telegram API error ${res.status}: ${redactToken(body)}`);
   }
 }
 
@@ -63,7 +69,7 @@ export async function sendPhoto(photoUrl: string, caption?: string, link?: strin
     ? formatMessage(caption, LIMITS.TELEGRAM_CAPTION, { link, pageName })
     : undefined;
 
-  const res = await fetch(`${API_BASE}/sendPhoto`, {
+  const res = await fetch(apiUrl("sendPhoto"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -76,6 +82,6 @@ export async function sendPhoto(photoUrl: string, caption?: string, link?: strin
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Telegram API error ${res.status}: ${body}`);
+    throw new Error(`Telegram API error ${res.status}: ${redactToken(body)}`);
   }
 }
