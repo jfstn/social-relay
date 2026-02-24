@@ -107,6 +107,14 @@ async function extractPermalink(el: Locator): Promise<string | null> {
     const href = await permalinks.first().getAttribute("href");
     if (!href) return null;
     const fullUrl = href.startsWith("http") ? href : `https://www.facebook.com${href}`;
+    try {
+      const parsed = new URL(fullUrl);
+      if (parsed.hostname !== "www.facebook.com" && parsed.hostname !== "facebook.com") {
+        return null;
+      }
+    } catch {
+      return null;
+    }
     return cleanFacebookUrl(fullUrl);
   } catch {
     return null;
