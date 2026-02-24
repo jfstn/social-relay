@@ -1,6 +1,6 @@
 import { config } from "./config.js";
 import { scrapePage, FacebookPost } from "./scraper.js";
-import { sendMessage, sendPhoto } from "./telegram.js";
+import { sendMessage, sendPhoto, sendMediaGroup } from "./telegram.js";
 import { wasSent, markSent } from "./store.js";
 import { TIMEOUTS } from "./constants.js";
 
@@ -76,7 +76,17 @@ async function processPost(post: FacebookPost) {
   const link = post.link ?? undefined;
   const name = post.pageName || undefined;
 
-  if (post.images.length > 0) {
+  if (post.images.length > 1) {
+    try {
+      await sendMediaGroup(post.images, post.text, link, name);
+    } catch {
+      try {
+        await sendPhoto(post.images[0], post.text, link, name);
+      } catch {
+        await sendMessage(post.text, link, name);
+      }
+    }
+  } else if (post.images.length === 1) {
     try {
       await sendPhoto(post.images[0], post.text, link, name);
     } catch {
