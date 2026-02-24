@@ -8,6 +8,7 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # Install Playwright browser + OS deps after pnpm install so it uses the locked version
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/.cache/ms-playwright
 RUN pnpm exec playwright install --with-deps chromium
 
 COPY tsconfig.json ./
