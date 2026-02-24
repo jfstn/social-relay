@@ -41,6 +41,26 @@ if (config.pages.length === 0) {
   process.exit(1);
 }
 
+function isValidFacebookUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      (parsed.hostname === "www.facebook.com" || parsed.hostname === "facebook.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+const invalidPages = config.pages.filter((url) => !isValidFacebookUrl(url));
+if (invalidPages.length > 0) {
+  console.error(
+    `Invalid FACEBOOK_PAGES URLs (must be https://www.facebook.com/...):\n${invalidPages.join("\n")}`
+  );
+  process.exit(1);
+}
+
 if (!SUPPORTED_LANGUAGES.includes(config.language as any)) {
   console.error(
     `Unsupported BOT_LANGUAGE "${config.language}". Supported: ${SUPPORTED_LANGUAGES.join(", ")}`
