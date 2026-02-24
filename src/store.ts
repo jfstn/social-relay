@@ -58,9 +58,13 @@ function saveToDisk() {
     }
   }
 
-  const store: StoreFile = { sentIds: ids };
-  mkdirSync("./data", { recursive: true });
-  writeFileSync(STORE_FILE, JSON.stringify(store, null, 2));
+  try {
+    const store: StoreFile = { sentIds: ids };
+    mkdirSync("./data", { recursive: true });
+    writeFileSync(STORE_FILE, JSON.stringify(store, null, 2));
+  } catch (err) {
+    console.error("[store] Failed to persist sent IDs to disk:", err);
+  }
 }
 
 /** O(1) check whether a post was already sent. */
