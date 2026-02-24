@@ -31,7 +31,7 @@ export const config: Config = {
   checkIntervalMinutes: parseInt(process.env.CHECK_INTERVAL_MINUTES || "30", 10),
   timezone: process.env.TIMEZONE || "UTC",
   nightSleepStart: parseInt(process.env.NIGHT_SLEEP_START || "0", 10),
-  nightSleepEnd: parseInt(process.env.NIGHT_SLEEP_END || "8", 10),
+  nightSleepEnd: parseInt(process.env.NIGHT_SLEEP_END || "0", 10),
   language: process.env.BOT_LANGUAGE || "en",
   debug: process.env.DEBUG === "1",
 };
