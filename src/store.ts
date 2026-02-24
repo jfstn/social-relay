@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { readFileSync, existsSync } from "fs";
+import { writeFile, mkdir } from "fs/promises";
 import { LIMITS } from "./constants.js";
 
 const STORE_FILE = "./data/sent-posts.json";
@@ -44,7 +45,7 @@ function loadFromDisk(): Set<string> {
  * Persist the current in-memory Set to disk.
  * When the set exceeds STORE_MAX_IDS, keep only the most recent entries.
  */
-function saveToDisk() {
+async function saveToDisk() {
   let ids = Array.from(sentIds);
 
   if (ids.length > LIMITS.STORE_MAX_IDS) {
@@ -58,13 +59,9 @@ function saveToDisk() {
     }
   }
 
-  try {
-    const store: StoreFile = { sentIds: ids };
-    mkdirSync("./data", { recursive: true });
-    writeFileSync(STORE_FILE, JSON.stringify(store, null, 2));
-  } catch (err) {
-    console.error("[store] Failed to persist sent IDs to disk:", err);
-  }
+  const store: StoreFile = { sentIds: ids };
+  await mkdir("./data", { recursive: true });
+  await writeFile(STORE_FILE, JSON.stringify(store, null, 2));
 }
 
 /** O(1) check whether a post was already sent. */
@@ -75,5 +72,7 @@ export function wasSent(id: string): boolean {
 /** Mark a post as sent — updates the in-memory Set and persists to disk. */
 export function markSent(id: string) {
   sentIds.add(id);
-  saveToDisk();
+  saveToDisk().catch((err) => {
+    console.error("[store] Failed to persist sent IDs to disk:", err);
+  });
 }
