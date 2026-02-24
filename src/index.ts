@@ -1,5 +1,5 @@
 import { config } from "./config.js";
-import { scrapePage, launchBrowser, createBrowserContext, FacebookPost } from "./scraper.js";
+import { scrapePage, FacebookPost } from "./scraper.js";
 import { sendMessage, sendPhoto } from "./telegram.js";
 import { wasSent, markSent } from "./store.js";
 import { TIMEOUTS } from "./constants.js";
@@ -88,45 +88,38 @@ async function check() {
   );
 
   let totalNew = 0;
-  const browser = await launchBrowser();
 
-  try {
-    const context = await createBrowserContext(browser);
+  for (const url of pages) {
+    const label = pageLabel(url);
 
-    for (const url of pages) {
-      const label = pageLabel(url);
+    try {
+      const { posts, blocked, elementCount } = await scrapePage(url);
 
-      try {
-        const { posts, blocked, elementCount } = await scrapePage(url, context);
-
-        if (blocked) {
-          console.warn(`  [${label}] blocked — redirected to login`);
-          await handleBlockWarning();
-          continue;
-        }
-
-        let newCount = 0;
-
-        for (const post of posts.reverse()) {
-          if (wasSent(post.id)) continue;
-          newCount++;
-          await processPost(post);
-        }
-
-        totalNew += newCount;
-        console.log(
-          `  [${label}] ${elementCount} elements, ${posts.length} posts, ${newCount} new`
-        );
-      } catch (err) {
-        console.error(`  [${label}] Error:`, err);
+      if (blocked) {
+        console.warn(`  [${label}] blocked — redirected to login`);
+        await handleBlockWarning();
+        continue;
       }
-    }
 
-    if (totalNew > 0) {
-      console.log(`  Sent ${totalNew} new post(s)`);
+      let newCount = 0;
+
+      for (const post of posts.reverse()) {
+        if (wasSent(post.id)) continue;
+        newCount++;
+        await processPost(post);
+      }
+
+      totalNew += newCount;
+      console.log(
+        `  [${label}] ${elementCount} elements, ${posts.length} posts, ${newCount} new`
+      );
+    } catch (err) {
+      console.error(`  [${label}] Error:`, err);
     }
-  } finally {
-    await browser.close();
+  }
+
+  if (totalNew > 0) {
+    console.log(`  Sent ${totalNew} new post(s)`);
   }
 }
 
