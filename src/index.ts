@@ -159,6 +159,14 @@ async function main() {
   scheduleNext();
 }
 
+function shutdown(signal: string) {
+  console.log(`\n${signal} received — shutting down`);
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
 main().catch((err) => {
   console.error("Fatal error:", err);
   process.exit(1);
