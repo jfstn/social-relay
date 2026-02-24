@@ -105,8 +105,12 @@ async function check() {
 
       for (const post of posts.reverse()) {
         if (wasSent(post.id)) continue;
-        newCount++;
-        await processPost(post);
+        try {
+          await processPost(post);
+          newCount++;
+        } catch (err) {
+          console.error(`  [${label}] Failed to process post ${post.id}:`, err);
+        }
       }
 
       totalNew += newCount;
