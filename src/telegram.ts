@@ -86,3 +86,34 @@ export async function sendPhoto(photoUrl: string, caption?: string, link?: strin
     throw new Error(`Telegram API error ${res.status}: ${redactToken(body)}`);
   }
 }
+
+export async function sendMediaGroup(
+  photoUrls: string[],
+  caption?: string,
+  link?: string,
+  pageName?: string
+) {
+  const formattedCaption = caption
+    ? formatMessage(caption, LIMITS.TELEGRAM_CAPTION, { link, pageName })
+    : undefined;
+
+  const media = photoUrls.map((url, i) => ({
+    type: "photo" as const,
+    media: url,
+    ...(i === 0 && formattedCaption ? { caption: formattedCaption, parse_mode: "HTML" as const } : {}),
+  }));
+
+  const res = await fetch(apiUrl("sendMediaGroup"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: config.telegramChatId,
+      media,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Telegram API error ${res.status}: ${redactToken(body)}`);
+  }
+}
