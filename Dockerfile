@@ -22,4 +22,9 @@ VOLUME /app/data
 
 ENV NODE_ENV=production
 
+# Run as non-root user
+RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 CMD ["node", "dist/index.js"]
