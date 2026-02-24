@@ -61,7 +61,7 @@ if (invalidPages.length > 0) {
   process.exit(1);
 }
 
-if (!SUPPORTED_LANGUAGES.includes(config.language as any)) {
+if (!(SUPPORTED_LANGUAGES as readonly string[]).includes(config.language)) {
   console.error(
     `Unsupported BOT_LANGUAGE "${config.language}". Supported: ${SUPPORTED_LANGUAGES.join(", ")}`
   );
