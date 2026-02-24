@@ -2,7 +2,7 @@ import { chromium } from "playwright-extra";
 import type { Page, BrowserContext, Locator } from "playwright";
 import stealth from "puppeteer-extra-plugin-stealth";
 import { createHash } from "crypto";
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
 import { config } from "./config.js";
 import { TIMEOUTS, LIMITS, DELAYS, USER_AGENTS } from "./constants.js";
 
@@ -27,12 +27,28 @@ function randomDelay(minMs: number, maxMs: number): number {
   return Math.floor(minMs + Math.random() * (maxMs - minMs));
 }
 
+const MAX_DEBUG_FILES = 50;
+
 function dumpDebug(label: string, content: string) {
   if (!config.debug) return;
-  mkdirSync("./data/debug", { recursive: true });
-  const file = `./data/debug/${label}-${Date.now()}.html`;
+  const dir = "./data/debug";
+  mkdirSync(dir, { recursive: true });
+  const file = `${dir}/${label}-${Date.now()}.html`;
   writeFileSync(file, content);
   console.log(`[debug] Saved ${file}`);
+
+  try {
+    const files = readdirSync(dir)
+      .filter((f) => f.endsWith(".html"))
+      .sort();
+    if (files.length > MAX_DEBUG_FILES) {
+      for (const old of files.slice(0, files.length - MAX_DEBUG_FILES)) {
+        unlinkSync(`${dir}/${old}`);
+      }
+    }
+  } catch {
+    // Best-effort cleanup
+  }
 }
 
 function cleanPostText(raw: string, pageName: string): string {
