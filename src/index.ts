@@ -28,25 +28,34 @@ function jitteredInterval(): number {
   return Math.round(minutes * 60 * 1000);
 }
 
+function getLocalHour(timezone: string): number {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "numeric",
+    hour12: false,
+  });
+  return parseInt(formatter.format(new Date()), 10);
+}
+
 function msUntilActive(): number {
   const { nightSleepStart, nightSleepEnd } = config;
   if (nightSleepStart === nightSleepEnd) return 0;
 
-  const now = new Date();
-  const local = new Date(now.toLocaleString("en-US", { timeZone: config.timezone }));
-  const hour = local.getHours();
+  const hour = getLocalHour(config.timezone);
 
   const isSleeping = nightSleepStart < nightSleepEnd
     ? hour >= nightSleepStart && hour < nightSleepEnd
     : hour >= nightSleepStart || hour < nightSleepEnd;
 
   if (isSleeping) {
-    const wake = new Date(local);
-    wake.setHours(nightSleepEnd, Math.floor(Math.random() * 30), 0, 0);
-    if (wake.getTime() <= local.getTime()) {
-      wake.setDate(wake.getDate() + 1);
+    let hoursUntilWake: number;
+    if (hour < nightSleepEnd) {
+      hoursUntilWake = nightSleepEnd - hour;
+    } else {
+      hoursUntilWake = (24 - hour) + nightSleepEnd;
     }
-    return wake.getTime() - local.getTime();
+    const jitterMinutes = Math.floor(Math.random() * 30);
+    return hoursUntilWake * 60 * 60 * 1000 + jitterMinutes * 60 * 1000;
   }
   return 0;
 }
