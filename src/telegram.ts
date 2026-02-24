@@ -25,7 +25,7 @@ function escapeHtml(text: string): string {
 
 function formatMessage(text: string, limit: number, opts?: { link?: string; pageName?: string }): string {
   const header = opts?.pageName ? `\ud83d\udce2 <b>${escapeHtml(opts.pageName)}</b>\n\n` : "";
-  const footer = opts?.link ? `\n\n\ud83d\udd17 <a href="${opts.link}">${t("viewOnFacebook")}</a>` : "";
+  const footer = opts?.link ? `\n\n\ud83d\udd17 <a href="${escapeHtml(opts.link)}">${t("viewOnFacebook")}</a>` : "";
   const ellipsis = "\n(...)";
 
   const escaped = escapeHtml(text);
