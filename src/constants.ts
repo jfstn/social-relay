@@ -12,7 +12,7 @@ export const LIMITS = {
   MIN_CLEANED_TEXT: 10,
   MAX_POSTS: 10,
   MAX_IMAGES: 4,
-  STORE_MAX_IDS: 100,
+  STORE_MAX_IDS: 1000,
 } as const;
 
 export const DELAYS = {
